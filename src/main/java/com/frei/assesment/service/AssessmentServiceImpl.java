@@ -27,13 +27,11 @@ public class AssessmentServiceImpl implements AssessmentService {
     @Override
     public ProcessResult processFiles(FileUploadInput fileUploadInput) {
 
-//        HashMap<String, List<LogEntry>> fileLogEntries = new HashMap<>();
         List<LogFileEntryEntity> listLogFileEntries = new ArrayList<>();
         List<String> fileNames = new ArrayList<>();
 
         //Process file one by one
         for (MultipartFile file : fileUploadInput.files()) {
-//            List<LogEntry> fileEntries = new ArrayList<>();
             fileNames.add(file.getOriginalFilename());
 
             //READ FILE TO BUILD ENTRY SET FOR FILE
@@ -43,19 +41,15 @@ public class AssessmentServiceImpl implements AssessmentService {
                 while ((line = reader.readLine()) != null) {
                     if(!line.trim().isEmpty()) {
                         LogEntry singleLog = Mapper.toLogEntry(line, file.getOriginalFilename());
-//                        fileEntries.add(singleLog);
                         listLogFileEntries.add(Mapper.toLogFileEntry(singleLog));
                     }
                 }
-
-//                fileLogEntries.put(file.getOriginalFilename(), fileEntries);
 
             } catch (IOException e) {
                 throw new BadRequestException("Error while reading file");
             }
         }
 
-        //SAVE DATA FOR QUERIES
         logFileEntryRepo.saveAll(listLogFileEntries);
 
         List<FileResults> resultsList = new ArrayList<>();
@@ -69,7 +63,6 @@ public class AssessmentServiceImpl implements AssessmentService {
             resultsList.add(results);
         }
 
-        //REMOVE CURRENT DATA SINCE PROCESSING IS DONE
         logFileEntryRepo.deleteAll();
         return new ProcessResult(resultsList);
 
