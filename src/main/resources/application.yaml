@@ -17,7 +17,7 @@ spring:
           order_updates: true
     hibernate:
       ddl-auto: update   # preserves schema during container run
-    show-sql: true
+    show-sql: false
 
   h2:
     console:

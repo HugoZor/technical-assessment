@@ -4,6 +4,7 @@ import com.frei.assesment.AssessmentService;
 import com.frei.assesment.data.*;
 import com.frei.assesment.persistance.LogFileEntryEntity;
 import com.frei.assesment.persistance.LogFileEntryRepo;
+import com.frei.common.exception.BadRequestException;
 import com.frei.mapper.Mapper;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,9 +14,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.time.Duration;
-import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -26,21 +25,15 @@ public class AssessmentServiceImpl implements AssessmentService {
     private final LogFileEntryRepo logFileEntryRepo;
 
     @Override
-    public void processFiles(FileUploadInput fileUploadInput) {
+    public ProcessResult processFiles(FileUploadInput fileUploadInput) {
 
-        /*
-        Count the number of LOGIN_SUCCESS and LOGIN_FAILURE per user.
-        Identify the top 3 users with the most FILE_UPLOAD events
-        Detect suspicious activity: more than 3 LOGIN_FAILURE attempts from the same IP address within a 5-minute window
-         */
-
-        HashMap<String, List<LogEntry>> fileLogEntries = new HashMap<>();
+//        HashMap<String, List<LogEntry>> fileLogEntries = new HashMap<>();
         List<LogFileEntryEntity> listLogFileEntries = new ArrayList<>();
         List<String> fileNames = new ArrayList<>();
 
         //Process file one by one
         for (MultipartFile file : fileUploadInput.files()) {
-            List<LogEntry> fileEntries = new ArrayList<>();
+//            List<LogEntry> fileEntries = new ArrayList<>();
             fileNames.add(file.getOriginalFilename());
 
             //READ FILE TO BUILD ENTRY SET FOR FILE
@@ -48,36 +41,37 @@ public class AssessmentServiceImpl implements AssessmentService {
 
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    LogEntry singleLog = Mapper.toLogEntry(line,file.getOriginalFilename());
-                    fileEntries.add(singleLog);
-                    listLogFileEntries.add(Mapper.toLogFileEntry(singleLog));
+                    if(!line.trim().isEmpty()) {
+                        LogEntry singleLog = Mapper.toLogEntry(line, file.getOriginalFilename());
+//                        fileEntries.add(singleLog);
+                        listLogFileEntries.add(Mapper.toLogFileEntry(singleLog));
+                    }
                 }
 
-                fileLogEntries.put(file.getOriginalFilename(), fileEntries);
-
+//                fileLogEntries.put(file.getOriginalFilename(), fileEntries);
 
             } catch (IOException e) {
-                System.err.println("Error printing file contents for " + file.getOriginalFilename() + ": " + e.getMessage());
+                throw new BadRequestException("Error while reading file");
             }
-
         }
 
-        System.out.println("Log file entries: " + fileLogEntries);
-
+        //SAVE DATA FOR QUERIES
         logFileEntryRepo.saveAll(listLogFileEntries);
 
+        List<FileResults> resultsList = new ArrayList<>();
         for(String fileName : fileNames) {
-            System.out.println("Login Stats per file: " +  fileName);
-            System.out.println(getLoginStats(fileName));
-            System.out.println("Upload Stats per file: " +  fileName);
-            System.out.println(getTop3Uploader(fileName));
-            System.out.println("IP Stats per file: " +  fileName);
-            System.out.println(detectSuspiciousIps(fileName));
-            System.out.println("------------------------------");
+            FileResults results = new FileResults(
+                    fileName,
+                    getLoginStats(fileName),
+                    getTop3Uploader(fileName),
+                    detectSuspiciousIps(fileName)
+            );
+            resultsList.add(results);
         }
 
-
-
+        //REMOVE CURRENT DATA SINCE PROCESSING IS DONE
+        logFileEntryRepo.deleteAll();
+        return new ProcessResult(resultsList);
 
     }
 
