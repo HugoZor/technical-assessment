@@ -4,9 +4,6 @@ import com.frei.assesment.AssessmentService;
 import com.frei.assesment.data.FileUploadInput;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @RequiredArgsConstructor
 @RestController

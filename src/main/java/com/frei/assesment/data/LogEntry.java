@@ -6,6 +6,7 @@ public record LogEntry(
         OffsetDateTime logTime,
         String user,
         Events userEvent,
-        String logInfo
+        String logInfo,
+        String fileName
 ) {
 }

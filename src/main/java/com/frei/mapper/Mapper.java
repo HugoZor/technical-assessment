@@ -2,6 +2,7 @@ package com.frei.mapper;
 
 import com.frei.assesment.data.LogEntry;
 import com.frei.assesment.data.Events;
+import com.frei.assesment.persistance.LogFileEntryEntity;
 import com.frei.common.exception.BadRequestException;
 
 import java.time.OffsetDateTime;
@@ -17,7 +18,7 @@ public class Mapper {
      * @param logLine a single line of the log file
      * @return - LogEntry DTO
      */
-    public static LogEntry toLogEntry(String logLine) {
+    public static LogEntry toLogEntry(String logLine, String fileName) {
 
         String[] values = logLine.split("\\|");
 
@@ -25,17 +26,7 @@ public class Mapper {
             values[i] = values[i].trim();
         }
 
-        //OPTIONAL - add boolean to endpoint to skip bad lines?
-        //inaccurate log analytics as side effect since not all entries are processed
-        if(values.length != 4){
-            throw new BadRequestException("Malformed log line detected");
-        } else if (!values[3].contains("=")){
-            throw  new BadRequestException("Malformed log line detected");
-        } else if (Arrays.stream(Events.values()).noneMatch(eventValue -> eventValue.name().equals(values[2]))){
-            throw  new BadRequestException("Malformed log line detected");
-        } else {
-            isValidIsoUtc(values[0]);
-        }
+        isValidLogEntry(values);
 
         String[] eventValues = values[3].split("=");
         if(eventValues.length != 2){
@@ -50,11 +41,35 @@ public class Mapper {
                 OffsetDateTime.parse(values[0]),
                 values[1],
                 Events.valueOf(values[2]),
-                eventValues[1]
+                eventValues[1],
+                fileName
         );
     }
 
+    public static LogFileEntryEntity  toLogFileEntry(LogEntry entry) {
+        return new LogFileEntryEntity()
+                .setLogTime(entry.logTime())
+                .setUserName(entry.user())
+                .setUserEvent(entry.userEvent())
+                .setLogInfo(entry.logInfo())
+                .setFileName(entry.fileName());
+    }
+
     //HELPER FUNCTION
+    private static void isValidLogEntry(String[] values) {
+        //OPTIONAL - add boolean to endpoint to skip bad lines?
+        //inaccurate log analytics as side effect since not all entries are processed
+        if(values.length != 4){
+            throw new BadRequestException("Malformed log line detected");
+        } else if (!values[3].contains("=")){
+            throw  new BadRequestException("Malformed log line detected");
+        } else if (Arrays.stream(Events.values()).noneMatch(eventValue -> eventValue.name().equals(values[2]))){
+            throw  new BadRequestException("Malformed log line detected");
+        } else {
+            isValidIsoUtc(values[0]);
+        }
+    }
+
     private static void isValidIsoUtc(String input) {
         try {
             OffsetDateTime.parse(input);
