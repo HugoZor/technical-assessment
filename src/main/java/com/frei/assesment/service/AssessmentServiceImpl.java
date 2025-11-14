@@ -8,6 +8,7 @@ import com.frei.common.exception.BadRequestException;
 import com.frei.mapper.Mapper;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
@@ -25,32 +26,10 @@ public class AssessmentServiceImpl implements AssessmentService {
     private final LogFileEntryRepo logFileEntryRepo;
 
     @Override
+    @Transactional
     public ProcessResult processFiles(FileUploadInput fileUploadInput) {
 
-        List<LogFileEntryEntity> listLogFileEntries = new ArrayList<>();
-        List<String> fileNames = new ArrayList<>();
-
-        //Process file one by one
-        for (MultipartFile file : fileUploadInput.files()) {
-            fileNames.add(file.getOriginalFilename());
-
-            //READ FILE TO BUILD ENTRY SET FOR FILE
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if(!line.trim().isEmpty()) {
-                        LogEntry singleLog = Mapper.toLogEntry(line, file.getOriginalFilename());
-                        listLogFileEntries.add(Mapper.toLogFileEntry(singleLog));
-                    }
-                }
-
-            } catch (IOException e) {
-                throw new BadRequestException("Error while reading file");
-            }
-        }
-
-        logFileEntryRepo.saveAll(listLogFileEntries);
+        List<String> fileNames = loadH2Db(fileUploadInput);
 
         List<FileResults> resultsList = new ArrayList<>();
         for(String fileName : fileNames) {
@@ -63,7 +42,8 @@ public class AssessmentServiceImpl implements AssessmentService {
             resultsList.add(results);
         }
 
-        logFileEntryRepo.deleteAll();
+        emptyH2Db();
+
         return new ProcessResult(resultsList);
 
     }
@@ -125,5 +105,44 @@ public class AssessmentServiceImpl implements AssessmentService {
         }
 
         return suspiciousIps;
+    }
+
+    private List<String> loadH2Db(FileUploadInput fileUploadInput) {
+        List<LogFileEntryEntity> listLogFileEntries = new ArrayList<>();
+        List<String> fileNames = new ArrayList<>();
+        Set<String> uniqueCheck = new HashSet<>();
+
+        for (MultipartFile file : fileUploadInput.files()) {
+            String name = file.getOriginalFilename();
+
+            if (!uniqueCheck.add(name)) {
+                throw new BadRequestException("Duplicate file name detected: " + name);
+            }
+
+            fileNames.add(name);
+
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (!line.trim().isEmpty()) {
+                        LogEntry singleLog = Mapper.toLogEntry(line, name);
+                        listLogFileEntries.add(Mapper.toLogFileEntry(singleLog));
+                    }
+                }
+
+            } catch (IOException e) {
+                throw new BadRequestException("Error while reading file");
+            }
+        }
+
+        logFileEntryRepo.saveAll(listLogFileEntries);
+
+        return fileNames;
+    }
+
+    private void emptyH2Db(){
+        logFileEntryRepo.deleteAll();
     }
 }
