@@ -6,13 +6,10 @@ import com.frei.assesment.persistance.LogFileEntryEntity;
 import com.frei.common.exception.BadRequestException;
 
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 
 public class Mapper {
-
-    private static final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     /**
      * @param logLine a single line of the log file
